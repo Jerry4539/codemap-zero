@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codemap"
+version = "0.1.0"
+description = "Zero-LLM project scanner for AI agents. Produces a compact project map so AI uses 50-100x fewer tokens to understand your codebase."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{name = "Jerry4539"}]
+keywords = ["codemap", "ai", "knowledge-graph", "static-analysis", "tree-sitter", "ast", "code-analysis", "dependency-graph"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-python",
+    "tree-sitter-javascript",
+    "tree-sitter-typescript",
+    "tree-sitter-go",
+    "tree-sitter-rust",
+    "tree-sitter-java",
+    "tree-sitter-c",
+    "tree-sitter-cpp",
+    "tree-sitter-ruby",
+    "tree-sitter-c-sharp",
+    "tree-sitter-kotlin",
+    "tree-sitter-scala",
+    "tree-sitter-php",
+    "tree-sitter-swift",
+    "tree-sitter-lua",
+    "tree-sitter-zig",
+    "tree-sitter-powershell",
+    "tree-sitter-elixir",
+    "tree-sitter-julia",
+    "networkx>=3.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+leiden = ["graspologic; python_version < '3.13'"]
+web = ["flask>=3.0"]
+ai = ["httpx>=0.27"]
+watch = ["watchdog>=3.0"]
+svg = ["matplotlib>=3.7"]
+all = ["codemap[leiden,web,ai,watch,svg]"]
+dev = ["pytest>=7.0", "pytest-cov", "flask>=3.0", "httpx>=0.27"]
+
+[project.scripts]
+codemap = "codemap.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Jerry4539/codemap"
+Repository = "https://github.com/Jerry4539/codemap"
+Issues = "https://github.com/Jerry4539/codemap/issues"
+Documentation = "https://github.com/Jerry4539/codemap#readme"
+
+[tool.setuptools.packages.find]
+include = ["codemap*"]
+
+[tool.setuptools.package-data]
+codemap = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
