@@ -70,6 +70,7 @@ ALWAYS_SKIP: set[str] = {
     ".next", ".nuxt", ".output",
     "vendor",
     "codemap-out",
+    "codemap-zero",
     ".idea", ".vscode",
 }
 

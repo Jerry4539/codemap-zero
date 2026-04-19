@@ -152,7 +152,7 @@ def cli(ctx: click.Context) -> None:
 
 @cli.command()
 @click.argument("target", default=".")
-@click.option("-o", "--output", default=".", help="Output directory for generated files.")
+@click.option("-o", "--output", default="codemap-zero", help="Output directory for generated files.")
 @click.option("--no-html", is_flag=True, help="Skip HTML visualization.")
 @click.option("--no-json", is_flag=True, help="Skip JSON export.")
 def scan(target: str, output: str, no_html: bool, no_json: bool) -> None:
@@ -163,6 +163,8 @@ def scan(target: str, output: str, no_html: bool, no_json: bool) -> None:
       codemap scan .                    Scan current directory
       codemap scan ~/myproject -o out/  Scan with custom output dir
       codemap scan . --no-html          Skip HTML generation
+
+    Output files are created in a 'codemap-zero/' folder by default.
     """
     _banner()
     _run_scan(target, output, no_html=no_html, no_json=no_json)
@@ -170,7 +172,7 @@ def scan(target: str, output: str, no_html: bool, no_json: bool) -> None:
 
 @cli.command()
 @click.argument("target", default=".")
-@click.option("-o", "--output", default=".", help="Output directory for generated files.")
+@click.option("-o", "--output", default="codemap-zero", help="Output directory for generated files.")
 @click.option("-p", "--port", default=8787, help="Port for web server.")
 @click.option("--host", default="127.0.0.1", help="Host to bind to.")
 def serve(target: str, output: str, port: int, host: str) -> None:
@@ -205,7 +207,7 @@ def serve(target: str, output: str, port: int, host: str) -> None:
 
 @cli.command()
 @click.argument("target", default=".")
-@click.option("-o", "--output", default=".", help="Output directory.")
+@click.option("-o", "--output", default="codemap-zero", help="Output directory.")
 @click.option("--api-key", envvar="VEDASLAB_API_KEY", help="vedaslab.in API key (or set VEDASLAB_API_KEY env var).")
 @click.option("--model", default="gemini-2.5-pro", help="Model: gemini-2.5-pro or claude-4.5")
 def ai(target: str, output: str, api_key: str | None, model: str) -> None:
@@ -256,7 +258,7 @@ def ai(target: str, output: str, api_key: str | None, model: str) -> None:
 
 @cli.command()
 @click.argument("target", default=".")
-@click.option("-o", "--output", default=".", help="Output directory.")
+@click.option("-o", "--output", default="codemap-zero", help="Output directory.")
 def menu(target: str, output: str) -> None:
     """Interactive menu — choose actions by number.
 

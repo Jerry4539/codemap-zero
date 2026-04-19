@@ -10,9 +10,9 @@
 ## What it does
 
 ```
-Your Project (50,000+ lines)  →  codemap-zero  →  PROJECT_MAP.md (~3K tokens)
-                                                →  codemap.json (full graph)
-                                                →  codemap.html (interactive viz)
+Your Project (50,000+ lines)  →  codemap scan .  →  codemap-zero/PROJECT_MAP.md (~3K tokens)
+                                                   →  codemap-zero/codemap.json (full graph)
+                                                   →  codemap-zero/codemap.html (interactive viz)
 ```
 
 - **AST-level extraction** — parses 20+ languages via tree-sitter
@@ -43,7 +43,7 @@ pip install codemap-zero[all]   # everything
 codemap scan .
 ```
 
-Generates `PROJECT_MAP.md`, `codemap.json`, and `codemap.html` in the current directory.
+Generates a `codemap-zero/` folder containing `PROJECT_MAP.md`, `codemap.json`, and `codemap.html`.
 
 ### Interactive menu
 
@@ -74,7 +74,7 @@ Chat with AI about your project using multiple providers (Vedaslab.in, OpenAI, G
 
 ```
 codemap scan [TARGET] [OPTIONS]    Scan project and generate maps
-  -o, --output DIR                 Output directory (default: .)
+  -o, --output DIR                 Output directory (default: codemap-zero/)
   --no-html                        Skip HTML generation
   --no-json                        Skip JSON export
 
@@ -133,12 +133,12 @@ cd /path/to/your/project
 codemap scan .
 ```
 
-This creates three files:
+This creates a `codemap-zero/` folder with three files:
 | File | What it contains |
 |---|---|
-| `PROJECT_MAP.md` | Compact codebase summary (~3K tokens instead of 50K+) |
-| `codemap.json` | Full dependency graph as structured data |
-| `codemap.html` | Interactive visualization (open in browser) |
+| `codemap-zero/PROJECT_MAP.md` | Compact codebase summary (~3K tokens instead of 50K+) |
+| `codemap-zero/codemap.json` | Full dependency graph as structured data |
+| `codemap-zero/codemap.html` | Interactive visualization (open in browser) |
 
 ### Step 3 — Copy this prompt and paste it to your AI agent
 
@@ -146,10 +146,10 @@ This creates three files:
 
 ```text
 You have access to a project that has been scanned with codemap-zero.
-Before doing anything else, read the file PROJECT_MAP.md in the project root.
+Before doing anything else, read the file codemap-zero/PROJECT_MAP.md in the project root.
 This file is your primary codebase context.
 
-PROJECT_MAP.md contains:
+codemap-zero/PROJECT_MAP.md contains:
 • Complete project structure with every file, class, function, and their relationships
 • Import and call dependency graph between all modules
 • Auto-detected logical clusters/modules (e.g. "auth", "database", "api", "ui")
@@ -158,33 +158,33 @@ PROJECT_MAP.md contains:
 • Framework and language detection
 
 SMART TOKEN MANAGEMENT:
-• Do NOT read every file to understand the project. PROJECT_MAP.md already has
+• Do NOT read every file to understand the project. codemap-zero/PROJECT_MAP.md already has
   a compressed summary of the entire codebase in ~3K tokens instead of 50K+.
-• When you need to edit a file, check PROJECT_MAP.md first to see what depends
+• When you need to edit a file, check codemap-zero/PROJECT_MAP.md first to see what depends
   on that file and what it depends on. This avoids breaking changes.
 • When adding features, check which cluster/module it belongs to and follow
   existing patterns.
-• When answering questions about the codebase, refer to PROJECT_MAP.md first.
+• When answering questions about the codebase, refer to codemap-zero/PROJECT_MAP.md first.
   Only read individual files when you need exact implementation details.
 
 MEMORY MANAGEMENT:
-• Treat PROJECT_MAP.md as your persistent project memory. It captures the full
+• Treat codemap-zero/PROJECT_MAP.md as your persistent project memory. It captures the full
   architecture in a compact format that fits in your context window.
 • If you have a memory/notes system, store the key architectural insights from
-  PROJECT_MAP.md there: main clusters, entry points, critical dependencies,
+  codemap-zero/PROJECT_MAP.md there: main clusters, entry points, critical dependencies,
   and known issues (god nodes, circular deps).
 • When the conversation gets long, you don't need to re-read source files.
-  PROJECT_MAP.md has the structural truth.
+  codemap-zero/PROJECT_MAP.md has the structural truth.
 • After making significant changes (new files, moved modules, renamed things),
-  ask the user to re-run "codemap scan ." and re-read the updated PROJECT_MAP.md.
+  ask the user to re-run "codemap scan ." and re-read the updated codemap-zero/PROJECT_MAP.md.
 
 RULES:
-1. Always read PROJECT_MAP.md FIRST before starting any task.
+1. Always read codemap-zero/PROJECT_MAP.md FIRST before starting any task.
 2. Use the dependency graph to understand impact before editing any file.
 3. Never read files one-by-one to "explore" — the map already tells you the structure.
-4. If PROJECT_MAP.md shows circular dependencies or god nodes, flag them to the user.
+4. If codemap-zero/PROJECT_MAP.md shows circular dependencies or god nodes, flag them to the user.
 5. When suggesting refactors, reference the cluster/module structure from the map.
-6. If codemap.json exists, you can parse it for programmatic access to the full graph data.
+6. If codemap-zero/codemap.json exists, you can parse it for programmatic access to the full graph data.
 
 This approach saves 50-100x tokens compared to reading every file individually.
 ```

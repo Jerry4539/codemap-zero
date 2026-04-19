@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codemap-zero"
-version = "0.1.3"
+version = "0.1.4"
 description = "Zero-LLM project scanner for AI agents. Produces a compact project map so AI uses 50-100x fewer tokens to understand your codebase."
 readme = "README.md"
 license = "MIT"

@@ -18,6 +18,7 @@ codemap.json
 codemap.html
 PROJECT_MAP.md
 codemap-out/
+codemap-zero/
 test_output/
 test_flags/
 *.egg

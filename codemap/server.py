@@ -770,7 +770,7 @@ td code{background:var(--surface);padding:1px 6px;border-radius:4px;font-size:12
   </div>
 </div>
 
-<div class="page-footer">codemap-zero v0.1.3 · Developed by <strong style="color:var(--accent-light)">Jerry4539</strong> · zero LLM tokens used</div>
+<div class="page-footer">codemap-zero v0.1.4 · Developed by <strong style="color:var(--accent-light)">Jerry4539</strong> · zero LLM tokens used</div>
 
 <script>
 (function(){
