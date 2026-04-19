@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/codemap-zero)](https://pypi.org/project/codemap-zero/)
 [![Python](https://img.shields.io/pypi/pyversions/codemap-zero)](https://pypi.org/project/codemap-zero/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub](https://img.shields.io/github/stars/Jerry4539/codemap?style=social)](https://github.com/Jerry4539/codemap)
+[![GitHub](https://img.shields.io/github/stars/Jerry4539/codemap-zero?style=social)](https://github.com/Jerry4539/codemap-zero)
 
 ## What it does
 
@@ -106,15 +106,15 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Java, C, C++, C#, Ruby, Kotlin, S
 ## Development
 
 ```bash
-git clone https://github.com/Jerry4539/codemap.git
-cd codemap
+git clone https://github.com/Jerry4539/codemap-zero.git
+cd codemap-zero
 pip install -e ".[dev]"
 codemap scan .
 ```
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/Jerry4539/codemap).
+Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/Jerry4539/codemap-zero).
 
 > **Note:** The PyPI package name is `codemap-zero` (`pip install codemap-zero`), but the CLI command is `codemap`.
 

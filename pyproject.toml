@@ -59,10 +59,10 @@ dev = ["pytest>=7.0", "pytest-cov", "flask>=3.0", "httpx>=0.27"]
 codemap = "codemap.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Jerry4539/codemap"
-Repository = "https://github.com/Jerry4539/codemap"
-Issues = "https://github.com/Jerry4539/codemap/issues"
-Documentation = "https://github.com/Jerry4539/codemap#readme"
+Homepage = "https://github.com/Jerry4539/codemap-zero"
+Repository = "https://github.com/Jerry4539/codemap-zero"
+Issues = "https://github.com/Jerry4539/codemap-zero/issues"
+Documentation = "https://github.com/Jerry4539/codemap-zero#readme"
 
 [tool.setuptools.packages.find]
 include = ["codemap*"]
