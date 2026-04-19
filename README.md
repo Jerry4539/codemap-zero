@@ -1,18 +1,18 @@
-# codemap
+# codemap-zero
 
 **Zero-LLM project scanner for AI agents.** Scan any codebase and get a compact project map so AI uses 50-100x fewer tokens to understand your code.
 
-[![PyPI](https://img.shields.io/pypi/v/codemap)](https://pypi.org/project/codemap/)
-[![Python](https://img.shields.io/pypi/pyversions/codemap)](https://pypi.org/project/codemap/)
+[![PyPI](https://img.shields.io/pypi/v/codemap-zero)](https://pypi.org/project/codemap-zero/)
+[![Python](https://img.shields.io/pypi/pyversions/codemap-zero)](https://pypi.org/project/codemap-zero/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub](https://img.shields.io/github/stars/Jerry4539/codemap?style=social)](https://github.com/Jerry4539/codemap)
 
 ## What it does
 
 ```
-Your Project (50,000+ lines)  →  codemap  →  PROJECT_MAP.md (~3K tokens)
-                                           →  codemap.json (full graph)
-                                           →  codemap.html (interactive viz)
+Your Project (50,000+ lines)  →  codemap-zero  →  PROJECT_MAP.md (~3K tokens)
+                                                →  codemap.json (full graph)
+                                                →  codemap.html (interactive viz)
 ```
 
 - **AST-level extraction** — parses 20+ languages via tree-sitter
@@ -24,15 +24,15 @@ Your Project (50,000+ lines)  →  codemap  →  PROJECT_MAP.md (~3K tokens)
 ## Install
 
 ```bash
-pip install codemap
+pip install codemap-zero
 ```
 
 With extras:
 
 ```bash
-pip install codemap[web]   # web dashboard (Flask)
-pip install codemap[ai]    # AI assistant (vedaslab.in API)
-pip install codemap[all]   # everything
+pip install codemap-zero[web]   # web dashboard (Flask)
+pip install codemap-zero[ai]    # AI assistant (vedaslab.in API)
+pip install codemap-zero[all]   # everything
 ```
 
 ## Quick Start
@@ -115,6 +115,8 @@ codemap scan .
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/Jerry4539/codemap).
+
+> **Note:** The PyPI package name is `codemap-zero` (`pip install codemap-zero`), but the CLI command is `codemap`.
 
 ## License
 

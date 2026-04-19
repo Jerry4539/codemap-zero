@@ -1,4 +1,4 @@
-"""codemap web server — professional dashboard UI.
+"""codemap-zero web server — professional dashboard UI.
 
 Uses Flask to serve a polished single-page dashboard with:
   - Overview with animated stat cards
@@ -32,7 +32,7 @@ _PALETTE = [
 def create_app(scan_results: dict[str, Any], output_dir: str) -> "Flask":
     """Create and configure the Flask app."""
     if Flask is None:
-        raise ImportError("Flask is required. Install with: pip install codemap[web]")
+        raise ImportError("Flask is required. Install with: pip install codemap-zero[web]")
 
     app = Flask(__name__)
 
@@ -215,7 +215,7 @@ _DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{ project_name }} — codemap</title>
+<title>{{ project_name }} — codemap-zero</title>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
 /* ── Reset & Vars ───────────────────────────────────────────── */
@@ -540,7 +540,7 @@ td code{background:var(--surface);padding:1px 6px;border-radius:4px;font-size:12
 <nav>
   <div class="nav-brand">
     <div class="icon">C</div>
-    <h1>codemap</h1>
+    <h1>codemap-zero</h1>
   </div>
   <div class="nav-meta">
     <span class="dot"></span>
@@ -770,7 +770,7 @@ td code{background:var(--surface);padding:1px 6px;border-radius:4px;font-size:12
   </div>
 </div>
 
-<div class="page-footer">codemap v0.1.0 · Developed by <strong style="color:var(--accent-light)">Jerry4539</strong> · zero LLM tokens used</div>
+<div class="page-footer">codemap-zero v0.1.0 · Developed by <strong style="color:var(--accent-light)">Jerry4539</strong> · zero LLM tokens used</div>
 
 <script>
 (function(){

@@ -1,4 +1,4 @@
-"""AI assistant for codemap - project Q&A via multiple AI providers.
+"""AI assistant for codemap-zero - project Q&A via multiple AI providers.
 
 Supports:
   - vedaslab.in  (GPT-4o, GPT-4.1, Gemini 2.5 Pro, Claude Sonnet 4, etc.)
@@ -108,7 +108,7 @@ class AIAssistant:
         scan_results: dict[str, Any] | None = None,
     ) -> None:
         if httpx is None:
-            raise ImportError("httpx is required. Install with: pip install codemap[ai]")
+            raise ImportError("httpx is required. Install with: pip install codemap-zero[ai]")
 
         self.provider = provider.lower()
         if self.provider not in PROVIDERS:

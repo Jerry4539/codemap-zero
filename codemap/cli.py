@@ -1,4 +1,4 @@
-"""codemap CLI — zero-LLM project scanner for AI agents.
+"""codemap-zero CLI — zero-LLM project scanner for AI agents.
 
 Provides:
   codemap scan  — full project scan → .md / .json / .html
@@ -38,7 +38,7 @@ def _c(text: str, color: str) -> str:
 def _banner() -> None:
     click.echo()
     click.echo(_c("  ╔═══════════════════════════════════════╗", CYAN))
-    click.echo(_c("  ║", CYAN) + _c("   codemap", BOLD + GREEN) + _c(" — zero-LLM project scanner  ", DIM) + _c("║", CYAN))
+    click.echo(_c("  ║", CYAN) + _c("   codemap-zero", BOLD + GREEN) + _c(" — zero-LLM project scanner  ", DIM) + _c("║", CYAN))
     click.echo(_c("  ╚═══════════════════════════════════════╝", CYAN))
     click.echo()
 
@@ -133,7 +133,7 @@ def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool
 @click.group(invoke_without_command=True)
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """codemap — zero-LLM project scanner for AI agents.
+    """codemap-zero — zero-LLM project scanner for AI agents.
 
     Scan any codebase and generate AI-friendly project maps:
     structured Markdown, JSON graph data, and interactive HTML.
@@ -197,7 +197,7 @@ def serve(target: str, output: str, port: int, host: str) -> None:
         app = create_app(results, output)
         app.run(host=host, port=port, debug=False)
     except ImportError:
-        click.echo(_c("  Flask not installed. Install with: pip install codemap[web]", RED))
+        click.echo(_c("  Flask not installed. Install with: pip install codemap-zero[web]", RED))
         sys.exit(1)
     except KeyboardInterrupt:
         click.echo(_c("\n  Server stopped.", YELLOW))
@@ -312,7 +312,7 @@ def menu(target: str, output: str) -> None:
                 app = create_app(results, output)
                 app.run(host="127.0.0.1", port=8787, debug=False)
             except ImportError:
-                click.echo(_c("  Flask not installed. Run: pip install codemap[web]", RED))
+                click.echo(_c("  Flask not installed. Run: pip install codemap-zero[web]", RED))
             except KeyboardInterrupt:
                 click.echo(_c("\n  Server stopped.\n", YELLOW))
 
