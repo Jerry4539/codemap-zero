@@ -142,37 +142,41 @@ This creates three files:
 
 ### Step 3 — Copy this prompt and paste it to your AI agent
 
-<table><tr><td>
+> Click the **copy button** (top-right of the code block) and paste it into any AI agent chat.
 
-**📋 Copy the entire prompt below:**
-
-</td></tr></table>
-
-<details open>
-<summary><strong>Click to expand the prompt</strong></summary>
-
-<textarea readonly rows="42" cols="100" style="width:100%; font-family:monospace; font-size:13px; padding:12px; background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:8px;" onclick="this.select()">
-You have access to a project that has been scanned with codemap-zero. Before doing anything else, read the file PROJECT_MAP.md in the project root. This file is your primary codebase context.
+```text
+You have access to a project that has been scanned with codemap-zero.
+Before doing anything else, read the file PROJECT_MAP.md in the project root.
+This file is your primary codebase context.
 
 PROJECT_MAP.md contains:
-- Complete project structure with every file, class, function, and their relationships
-- Import and call dependency graph between all modules
-- Auto-detected logical clusters/modules (e.g. "auth", "database", "api", "ui")
-- Architecture analysis: entry points, god nodes, circular dependencies, dead code
-- Complexity and coupling metrics per file
-- Framework and language detection
+• Complete project structure with every file, class, function, and their relationships
+• Import and call dependency graph between all modules
+• Auto-detected logical clusters/modules (e.g. "auth", "database", "api", "ui")
+• Architecture analysis: entry points, god nodes, circular dependencies, dead code
+• Complexity and coupling metrics per file
+• Framework and language detection
 
-USE THIS FOR SMART TOKEN MANAGEMENT:
-- Do NOT read every file to understand the project. PROJECT_MAP.md already has a compressed summary of the entire codebase in ~3K tokens instead of 50K+.
-- When you need to edit a file, check PROJECT_MAP.md first to see what depends on that file and what it depends on. This avoids breaking changes.
-- When adding features, check which cluster/module it belongs to and follow existing patterns.
-- When answering questions about the codebase, refer to PROJECT_MAP.md first. Only read individual files when you need exact implementation details.
+SMART TOKEN MANAGEMENT:
+• Do NOT read every file to understand the project. PROJECT_MAP.md already has
+  a compressed summary of the entire codebase in ~3K tokens instead of 50K+.
+• When you need to edit a file, check PROJECT_MAP.md first to see what depends
+  on that file and what it depends on. This avoids breaking changes.
+• When adding features, check which cluster/module it belongs to and follow
+  existing patterns.
+• When answering questions about the codebase, refer to PROJECT_MAP.md first.
+  Only read individual files when you need exact implementation details.
 
-USE THIS FOR MEMORY MANAGEMENT:
-- Treat PROJECT_MAP.md as your persistent project memory. It captures the full architecture in a compact format that fits in your context window.
-- If you have a memory/notes system, store the key architectural insights from PROJECT_MAP.md there: the main clusters, entry points, critical dependencies, and known issues (god nodes, circular deps).
-- When the conversation gets long, you don't need to re-read source files. PROJECT_MAP.md has the structural truth.
-- After making significant changes (new files, moved modules, renamed things), ask the user to re-run "codemap scan ." and re-read the updated PROJECT_MAP.md.
+MEMORY MANAGEMENT:
+• Treat PROJECT_MAP.md as your persistent project memory. It captures the full
+  architecture in a compact format that fits in your context window.
+• If you have a memory/notes system, store the key architectural insights from
+  PROJECT_MAP.md there: main clusters, entry points, critical dependencies,
+  and known issues (god nodes, circular deps).
+• When the conversation gets long, you don't need to re-read source files.
+  PROJECT_MAP.md has the structural truth.
+• After making significant changes (new files, moved modules, renamed things),
+  ask the user to re-run "codemap scan ." and re-read the updated PROJECT_MAP.md.
 
 RULES:
 1. Always read PROJECT_MAP.md FIRST before starting any task.
@@ -183,11 +187,7 @@ RULES:
 6. If codemap.json exists, you can parse it for programmatic access to the full graph data.
 
 This approach saves 50-100x tokens compared to reading every file individually.
-</textarea>
-
-</details>
-
-> **Tip:** Click inside the text box and press `Ctrl+A` (Windows) or `Cmd+A` (Mac) to select all, then copy.
+```
 
 ### Why this works
 
