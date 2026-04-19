@@ -103,6 +103,12 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Java, C, C++, C#, Ruby, Kotlin, S
 6. **Report** — generates a token-optimized Markdown summary
 7. **Export** — outputs JSON graph data and interactive HTML visualization
 
+## Agent Prompt (Copy & Paste)
+
+Want any AI agent to use codemap-zero automatically? Copy the ready-made prompt from **[AGENT_PROMPT.md](AGENT_PROMPT.md)** and paste it at the start of your session with any coding agent (Copilot, Cursor, Claude, ChatGPT, Windsurf, etc.).
+
+The agent will scan your project first, read the compact map, and have full codebase awareness using 50–100x fewer tokens.
+
 ## Development
 
 ```bash
