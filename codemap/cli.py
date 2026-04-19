@@ -45,12 +45,44 @@ def _banner() -> None:
 
 # ── Pipeline helpers ────────────────────────────────────────────────────────
 
+def _resolve_output(target: str, output: str) -> Path:
+    """Resolve output directory relative to target project dir.
+
+    If output is the default 'codemap-zero', make it a subfolder of target.
+    Otherwise treat it as user-specified (could be absolute or relative to CWD).
+    """
+    target_path = Path(target).resolve()
+    out = Path(output)
+    if not out.is_absolute():
+        # Relative path → put it inside the target project directory
+        out = target_path / output
+    return out.resolve()
+
+
+def _find_existing_scan(target: str, output_dir: str) -> Path | None:
+    """Look for existing PROJECT_MAP.md in codemap-zero/ folder or project root."""
+    target_path = Path(target).resolve()
+    out_path = _resolve_output(target, output_dir)
+
+    # Check preferred location first (codemap-zero/ subfolder)
+    preferred = out_path / "PROJECT_MAP.md"
+    if preferred.exists():
+        return out_path
+
+    # Fallback: check project root (from older scans)
+    root_map = target_path / "PROJECT_MAP.md"
+    if root_map.exists():
+        return target_path
+
+    return None
+
+
 def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool = False) -> dict[str, Any]:
     """Run the full scan pipeline and return results dict."""
     from codemap import detect, extract, build, cluster, analyze, report, export, viz
 
     target_path = Path(target).resolve()
-    out_path = Path(output_dir).resolve()
+    out_path = _resolve_output(target, output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
     click.echo(_c("  [1/7]", DIM) + " Detecting project structure...")
@@ -196,7 +228,8 @@ def serve(target: str, output: str, port: int, host: str) -> None:
 
     try:
         from codemap.server import create_app
-        app = create_app(results, output)
+        out_resolved = str(_resolve_output(target, output))
+        app = create_app(results, out_resolved)
         app.run(host=host, port=port, debug=False)
     except ImportError:
         click.echo(_c("  Flask not installed. Install with: pip install codemap-zero[web]", RED))
@@ -227,9 +260,16 @@ def ai(target: str, output: str, api_key: str | None, model: str) -> None:
     if not api_key:
         click.echo(_c("  No API key provided.", YELLOW))
         click.echo(_c("  Set VEDASLAB_API_KEY env var or use --api-key flag.", DIM))
-        api_key = click.prompt("  Enter vedaslab.in API key", hide_input=True)
+        click.echo(_c("  (Paste your key below — it will be visible for easy editing)", DIM))
+        api_key = click.prompt("  Enter API key")
 
-    click.echo(_c("  Scanning project for context...", YELLOW))
+    # Smart scan: reuse existing results or scan fresh
+    existing = _find_existing_scan(target, output)
+    if existing:
+        click.echo(_c(f"  Found existing scan at {existing}", GREEN))
+        click.echo(_c("  Scanning fresh for full context...", YELLOW))
+    else:
+        click.echo(_c("  Scanning project for context...", YELLOW))
     click.echo()
     results = _run_scan(target, output)
 
@@ -311,7 +351,8 @@ def menu(target: str, output: str) -> None:
                 from codemap.server import create_app
                 click.echo(_c("  Starting web dashboard on http://127.0.0.1:8787", CYAN + BOLD))
                 click.echo(_c("  Press Ctrl+C to stop\n", DIM))
-                app = create_app(results, output)
+                out_resolved = str(_resolve_output(target, output))
+                app = create_app(results, out_resolved)
                 app.run(host="127.0.0.1", port=8787, debug=False)
             except ImportError:
                 click.echo(_c("  Flask not installed. Run: pip install codemap-zero[web]", RED))
@@ -324,7 +365,8 @@ def menu(target: str, output: str) -> None:
                 results = _run_scan(target, output)
             api_key = os.environ.get("VEDASLAB_API_KEY")
             if not api_key:
-                api_key = click.prompt("  Enter vedaslab.in API key", hide_input=True)
+                click.echo(_c("  (Paste your key below — it will be visible for easy editing)", DIM))
+                api_key = click.prompt("  Enter API key")
             model = click.prompt(_c("  Model", YELLOW), default="gemini-2.5-pro",
                                  type=click.Choice(["gemini-2.5-pro", "claude-4.5"]))
             from codemap.assistant import AIAssistant
@@ -349,7 +391,7 @@ def menu(target: str, output: str) -> None:
             _show_stats(results)
 
         elif choice == "5":
-            html_file = Path(output).resolve() / "codemap.html"
+            html_file = _resolve_output(target, output) / "codemap.html"
             if html_file.exists():
                 import webbrowser
                 webbrowser.open(str(html_file))
