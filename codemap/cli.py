@@ -142,7 +142,13 @@ def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool
 
     if not no_html:
         html_path = str(out_path / "codemap.html")
-        viz.to_html(G, communities, html_path, labels)
+        scan_data = {
+            "G": G, "detection": detection, "communities": communities,
+            "labels": labels, "cohesion": cohesion, "gods": gods,
+            "entry_points": entry_points, "complexity": complexity,
+            "surprises": surprises,
+        }
+        viz.to_html(G, communities, html_path, labels, scan_results=scan_data)
         click.echo(_c(f"         → {html_path}", GREEN))
 
     elapsed = time.time() - t0
