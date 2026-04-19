@@ -103,11 +103,101 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Java, C, C++, C#, Ruby, Kotlin, S
 6. **Report** — generates a token-optimized Markdown summary
 7. **Export** — outputs JSON graph data and interactive HTML visualization
 
-## Agent Prompt (Copy & Paste)
+## 🤖 Agent Prompt — Copy & Paste to Any AI Agent
 
-Want any AI agent to use codemap-zero automatically? Copy the ready-made prompt from **[AGENT_PROMPT.md](AGENT_PROMPT.md)** and paste it at the start of your session with any coding agent (Copilot, Cursor, Claude, ChatGPT, Windsurf, etc.).
+Give any AI coding agent (GitHub Copilot, Cursor, Claude, ChatGPT, Windsurf, Cline, etc.) instant full-project awareness. Just copy the prompt below and paste it at the start of your chat session.
 
-The agent will scan your project first, read the compact map, and have full codebase awareness using 50–100x fewer tokens.
+### Step 1 — Install codemap-zero
+
+**Windows (PowerShell):**
+```powershell
+pip install codemap-zero
+```
+
+**Mac / Linux (Terminal):**
+```bash
+pip install codemap-zero
+```
+
+### Step 2 — Scan your project
+
+**Windows:**
+```powershell
+cd C:\path\to\your\project
+codemap scan .
+```
+
+**Mac / Linux:**
+```bash
+cd /path/to/your/project
+codemap scan .
+```
+
+This creates three files:
+| File | What it contains |
+|---|---|
+| `PROJECT_MAP.md` | Compact codebase summary (~3K tokens instead of 50K+) |
+| `codemap.json` | Full dependency graph as structured data |
+| `codemap.html` | Interactive visualization (open in browser) |
+
+### Step 3 — Copy this prompt and paste it to your AI agent
+
+<table><tr><td>
+
+**📋 Copy the entire prompt below:**
+
+</td></tr></table>
+
+<details open>
+<summary><strong>Click to expand the prompt</strong></summary>
+
+<textarea readonly rows="42" cols="100" style="width:100%; font-family:monospace; font-size:13px; padding:12px; background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:8px;" onclick="this.select()">
+You have access to a project that has been scanned with codemap-zero. Before doing anything else, read the file PROJECT_MAP.md in the project root. This file is your primary codebase context.
+
+PROJECT_MAP.md contains:
+- Complete project structure with every file, class, function, and their relationships
+- Import and call dependency graph between all modules
+- Auto-detected logical clusters/modules (e.g. "auth", "database", "api", "ui")
+- Architecture analysis: entry points, god nodes, circular dependencies, dead code
+- Complexity and coupling metrics per file
+- Framework and language detection
+
+USE THIS FOR SMART TOKEN MANAGEMENT:
+- Do NOT read every file to understand the project. PROJECT_MAP.md already has a compressed summary of the entire codebase in ~3K tokens instead of 50K+.
+- When you need to edit a file, check PROJECT_MAP.md first to see what depends on that file and what it depends on. This avoids breaking changes.
+- When adding features, check which cluster/module it belongs to and follow existing patterns.
+- When answering questions about the codebase, refer to PROJECT_MAP.md first. Only read individual files when you need exact implementation details.
+
+USE THIS FOR MEMORY MANAGEMENT:
+- Treat PROJECT_MAP.md as your persistent project memory. It captures the full architecture in a compact format that fits in your context window.
+- If you have a memory/notes system, store the key architectural insights from PROJECT_MAP.md there: the main clusters, entry points, critical dependencies, and known issues (god nodes, circular deps).
+- When the conversation gets long, you don't need to re-read source files. PROJECT_MAP.md has the structural truth.
+- After making significant changes (new files, moved modules, renamed things), ask the user to re-run "codemap scan ." and re-read the updated PROJECT_MAP.md.
+
+RULES:
+1. Always read PROJECT_MAP.md FIRST before starting any task.
+2. Use the dependency graph to understand impact before editing any file.
+3. Never read files one-by-one to "explore" — the map already tells you the structure.
+4. If PROJECT_MAP.md shows circular dependencies or god nodes, flag them to the user.
+5. When suggesting refactors, reference the cluster/module structure from the map.
+6. If codemap.json exists, you can parse it for programmatic access to the full graph data.
+
+This approach saves 50-100x tokens compared to reading every file individually.
+</textarea>
+
+</details>
+
+> **Tip:** Click inside the text box and press `Ctrl+A` (Windows) or `Cmd+A` (Mac) to select all, then copy.
+
+### Why this works
+
+| Without codemap-zero | With codemap-zero |
+|---|---|
+| AI reads files one-by-one | AI reads one 3K-token map |
+| Burns 50K–100K+ tokens exploring | Full context in seconds |
+| Misses dependencies, breaks things | Sees the full dependency graph |
+| Forgets project structure mid-chat | Compact map fits in context window |
+| No architecture awareness | Knows clusters, god nodes, dead code |
 
 ## Development
 
