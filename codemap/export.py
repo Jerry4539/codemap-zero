@@ -16,6 +16,7 @@ def to_json(
     communities: dict[int, list[str]],
     labels: dict[int, str],
     output_path: str,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Export graph as JSON (NetworkX node_link format).
 
@@ -35,6 +36,8 @@ def to_json(
             G_copy.nodes[node_id]["community_label"] = labels.get(cid, f"Module {cid}")
 
     data = json_graph.node_link_data(G_copy, edges="links")
+    if metadata:
+        data["meta"] = metadata
     Path(output_path).write_text(
         json.dumps(data, indent=2, default=str),
         encoding="utf-8",

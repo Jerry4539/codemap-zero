@@ -11,6 +11,8 @@ from typing import Any
 
 import networkx as nx
 
+from codemap import __version__
+
 
 def _estimate_tokens(text: str) -> int:
     """Estimate token count from text (~1.3 words per token for English/code)."""
@@ -41,9 +43,22 @@ def generate(
     project_type = detection.get("project_type", "unknown")
     project_desc = detection.get("project_description", "")
     frameworks = detection.get("frameworks", [])
+    languages = detection.get("languages", {})
+    frameworks_by_language = detection.get("frameworks_by_language", {})
+    dependencies_by_ecosystem = detection.get("dependencies_by_ecosystem", {})
+    manifest_files = detection.get("manifest_files", [])
+    docs_summary = detection.get("docs_summary", {})
     total_files = detection.get("total_files", 0)
     total_lines = detection.get("total_lines", 0)
     estimated_tokens = detection.get("estimated_tokens", 0)
+    total_dirs_scanned = detection.get("total_dirs_scanned", 0)
+    total_files_seen = detection.get("total_files_seen", 0)
+    skipped_ignored = detection.get("skipped_ignored", 0)
+    skipped_binary = detection.get("skipped_binary", 0)
+    extensionless_included = detection.get("extensionless_included", 0)
+    skipped_limit = detection.get("skipped_limit", 0)
+    largest_files = detection.get("largest_files", [])
+    line_heavy_files = detection.get("line_heavy_files", [])
 
     # ── Header ──
     lines.append(f"# Project Map: {project_name}\n")
@@ -59,6 +74,7 @@ def generate(
         lines.append(f"{project_desc}\n")
 
     files = detection.get("files", {})
+    det_entries = detection.get("entry_points", [])
     file_counts = []
     for cat in ("code", "tests", "docs", "config"):
         count = len(files.get(cat, []))
@@ -66,6 +82,87 @@ def generate(
             file_counts.append(f"{cat}: {count}")
     if file_counts:
         lines.append(f"Files: {' · '.join(file_counts)}\n")
+
+    # ── Scan Coverage ──
+    lines.append("## Scan Coverage\n")
+    lines.append(
+        f"Scanned {total_dirs_scanned} directories and visited {total_files_seen} files. "
+        f"Included {total_files} files in the map."
+    )
+    lines.append(
+        f"Skipped: ignored={skipped_ignored}, binary/generated={skipped_binary}, "
+        f"limit={skipped_limit}. Included extensionless files: {extensionless_included}\n"
+    )
+
+    extra_counts = []
+    for cat in ("images", "other"):
+        count = len(files.get(cat, []))
+        if count:
+            extra_counts.append(f"{cat}: {count}")
+    if extra_counts:
+        lines.append(f"Additional coverage: {' · '.join(extra_counts)}\n")
+
+    # ── Languages & Frameworks ──
+    if languages or frameworks:
+        lines.append("## Languages & Frameworks\n")
+        if languages:
+            lang_bits = [f"{lang}: {count}" for lang, count in languages.items()]
+            lines.append(f"Languages: {' · '.join(lang_bits)}")
+        if frameworks:
+            lines.append(f"Frameworks: {', '.join(frameworks)}")
+        if frameworks_by_language:
+            for lang, fws in frameworks_by_language.items():
+                if fws:
+                    lines.append(f"- **{lang}**: {', '.join(fws)}")
+        if manifest_files:
+            shown = ", ".join(f"`{m}`" for m in manifest_files[:8])
+            extra = f" +{len(manifest_files) - 8} more" if len(manifest_files) > 8 else ""
+            lines.append(f"Manifests: {shown}{extra}")
+        lines.append("")
+
+    # ── Dependencies Snapshot ──
+    if dependencies_by_ecosystem:
+        lines.append("## Dependency Snapshot\n")
+        for eco, deps in dependencies_by_ecosystem.items():
+            if not deps:
+                continue
+            shown = ", ".join(f"`{d}`" for d in deps[:12])
+            extra = f" +{len(deps) - 12} more" if len(deps) > 12 else ""
+            lines.append(f"- **{eco}**: {shown}{extra}")
+        lines.append("")
+
+    # ── Docs & Config Context ──
+    if docs_summary:
+        doc_count = docs_summary.get("documents", 0)
+        sections = docs_summary.get("sections", [])
+        cfg_keys = docs_summary.get("config_keys", [])
+        lines.append("## Docs & Config Context\n")
+        lines.append(f"Documents parsed: {doc_count}")
+        if sections:
+            shown = ", ".join(f"`{s}`" for s in sections[:12])
+            extra = f" +{len(sections) - 12} more" if len(sections) > 12 else ""
+            lines.append(f"Top sections: {shown}{extra}")
+        if cfg_keys:
+            shown = ", ".join(f"`{k}`" for k in cfg_keys[:15])
+            extra = f" +{len(cfg_keys) - 15} more" if len(cfg_keys) > 15 else ""
+            lines.append(f"Config keys: {shown}{extra}")
+        lines.append("")
+
+    # ── AI Context Pack ──
+    lines.append("## AI Context Pack\n")
+    lines.append("Use this compact context before opening full files:")
+    if det_entries:
+        lines.append(f"- Entrypoints: {', '.join(f'`{e}`' for e in det_entries[:6])}")
+    if languages:
+        lines.append(f"- Primary languages: {', '.join(list(languages.keys())[:5])}")
+    if frameworks:
+        lines.append(f"- Primary frameworks: {', '.join(frameworks[:8])}")
+    lines.append(f"- Graph density: {G.number_of_nodes()} nodes / {G.number_of_edges()} edges")
+    lines.append(f"- Modules: {len(communities)} (top cohesion: {max(cohesion.values() or [0]):.2f})")
+    if complexity:
+        top = complexity[0]
+        lines.append(f"- Most complex file: `{top.get('label', '')}` ({top.get('complexity_score', 0):.1f})")
+    lines.append("")
 
     # ── Architecture ──
     if architecture or layers:
@@ -80,7 +177,6 @@ def generate(
             lines.append("")
 
     # ── Entry Points (capped at 5) ──
-    det_entries = detection.get("entry_points", [])
     if det_entries or entry_points:
         lines.append("## Entry Points\n")
         seen = set()
@@ -166,6 +262,20 @@ def generate(
                              f"{c['connections']} connections, {c['lines']} lines")
             lines.append("")
 
+    # ── Deep File Details ──
+    if largest_files or line_heavy_files:
+        lines.append("## Deep File Details\n")
+        if largest_files:
+            lines.append("Largest Files (bytes):")
+            for item in largest_files[:8]:
+                lines.append(f"- `{item.get('path', '')}` — {item.get('bytes', 0):,} bytes")
+            lines.append("")
+        if line_heavy_files:
+            lines.append("Most Line-Heavy Files:")
+            for item in line_heavy_files[:8]:
+                lines.append(f"- `{item.get('path', '')}` — {item.get('lines', 0):,} lines")
+            lines.append("")
+
     # ── Warnings ──
     warnings: list[str] = []
     if circular_deps:
@@ -217,6 +327,6 @@ def generate(
     )
 
     report += "\n---\n"
-    report += f"*Generated by codemap-zero v0.1.5 · {total_files} files scanned · zero LLM tokens used*\n"
+    report += f"*Generated by codemap-zero v{__version__} · {total_files} files scanned · zero LLM tokens used*\n"
 
     return report

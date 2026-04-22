@@ -77,9 +77,15 @@ def _find_existing_scan(target: str, output_dir: str) -> Path | None:
     return None
 
 
-def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool = False) -> dict[str, Any]:
+def _run_scan(
+    target: str,
+    output_dir: str,
+    no_html: bool = False,
+    no_json: bool = False,
+    include_ignored: bool = False,
+) -> dict[str, Any]:
     """Run the full scan pipeline and return results dict."""
-    from codemap import detect, extract, build, cluster, analyze, report, export, viz
+    from codemap import detect, extract, build, cluster, analyze, report, export, viz, docs
 
     target_path = Path(target).resolve()
     out_path = _resolve_output(target, output_dir)
@@ -87,11 +93,33 @@ def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool
 
     click.echo(_c("  [1/7]", DIM) + " Detecting project structure...")
     t0 = time.time()
-    detection_result = detect.detect(target_path)
+    detection_result = detect.detect(target_path, include_ignored=include_ignored)
     detection = detection_result.to_dict()
+
+    docs_result = docs.extract_docs(
+        detection["files"].get("docs", []),
+        detection["files"].get("config", []),
+        target_path,
+    )
+    document_nodes = [n for n in docs_result.get("nodes", []) if n.get("type") == "document"]
+    section_nodes = [n for n in docs_result.get("nodes", []) if n.get("type") == "section"]
+    config_nodes = [n for n in docs_result.get("nodes", []) if n.get("type") == "config"]
+    config_keys: list[str] = []
+    for cfg in config_nodes:
+        for key in cfg.get("keys", []):
+            if key not in config_keys:
+                config_keys.append(key)
+    detection["docs_summary"] = {
+        "documents": len(document_nodes),
+        "sections": [n.get("label", "") for n in section_nodes[:30]],
+        "config_keys": config_keys[:80],
+    }
     click.echo(_c(f"         → {detection.get('project_name', '?')} "
                    f"({detection.get('total_files', 0)} files, "
                    f"{detection.get('total_lines', 0):,} lines)", DIM))
+    click.echo(_c(f"         → scanned {detection.get('total_dirs_scanned', 0)} dirs, "
+                   f"seen {detection.get('total_files_seen', 0)} files, "
+                   f"ignored {detection.get('skipped_ignored', 0)}", DIM))
 
     click.echo(_c("  [2/7]", DIM) + " Extracting AST nodes...")
     code_files = detection["files"].get("code", [])
@@ -137,7 +165,41 @@ def _run_scan(target: str, output_dir: str, no_html: bool = False, no_json: bool
     click.echo(_c("  [7/7]", DIM) + " Exporting artifacts...")
     if not no_json:
         json_path = str(out_path / "codemap.json")
-        export.to_json(G, communities, labels, json_path)
+        json_meta = {
+            "project": {
+                "name": detection.get("project_name", ""),
+                "type": detection.get("project_type", ""),
+                "description": detection.get("project_description", ""),
+                "languages": detection.get("languages", {}),
+                "frameworks": detection.get("frameworks", []),
+                "frameworks_by_language": detection.get("frameworks_by_language", {}),
+                "dependencies_by_ecosystem": detection.get("dependencies_by_ecosystem", {}),
+                "manifests": detection.get("manifest_files", []),
+            },
+            "scan": {
+                "total_files": detection.get("total_files", 0),
+                "total_lines": detection.get("total_lines", 0),
+                "total_dirs_scanned": detection.get("total_dirs_scanned", 0),
+                "total_files_seen": detection.get("total_files_seen", 0),
+                "entry_points": detection.get("entry_points", []),
+                "docs_summary": detection.get("docs_summary", {}),
+                "largest_files": detection.get("largest_files", []),
+                "line_heavy_files": detection.get("line_heavy_files", []),
+            },
+            "analysis": {
+                "architecture": architecture,
+                "layers": layers,
+                "circular_dependencies": circular,
+                "dead_exports": dead,
+                "complexity": complexity,
+                "surprises": surprises,
+                "gods": gods,
+                "entry_points": entry_points,
+                "cohesion": cohesion,
+                "labels": labels,
+            },
+        }
+        export.to_json(G, communities, labels, json_path, metadata=json_meta)
         click.echo(_c(f"         → {json_path}", GREEN))
 
     if not no_html:
@@ -193,7 +255,8 @@ def cli(ctx: click.Context) -> None:
 @click.option("-o", "--output", default="codemap-zero", help="Output directory for generated files.")
 @click.option("--no-html", is_flag=True, help="Skip HTML visualization.")
 @click.option("--no-json", is_flag=True, help="Skip JSON export.")
-def scan(target: str, output: str, no_html: bool, no_json: bool) -> None:
+@click.option("--include-ignored", is_flag=True, help="Include files matched by .gitignore / .codemapignore.")
+def scan(target: str, output: str, no_html: bool, no_json: bool, include_ignored: bool) -> None:
     """Scan a project and generate project map files.
 
     \b
@@ -205,7 +268,7 @@ def scan(target: str, output: str, no_html: bool, no_json: bool) -> None:
     Output files are created in a 'codemap-zero/' folder by default.
     """
     _banner()
-    _run_scan(target, output, no_html=no_html, no_json=no_json)
+    _run_scan(target, output, no_html=no_html, no_json=no_json, include_ignored=include_ignored)
 
 
 @cli.command()
