@@ -143,6 +143,234 @@ def create_app(scan_results: dict[str, Any], output_dir: str) -> "Flask":
     def api_entry_points():
         return jsonify(entry_points[:10])
 
+    # ── MCP-style structural query endpoints ────────────────────────────
+    # These let AI agents query the graph structure instead of reading files.
+    # Example prompts shipped with each endpoint for quick copy-paste.
+
+    @app.route("/api/query/affects")
+    def api_query_affects():
+        """What files/nodes are affected if this file changes?
+
+        GET /api/query/affects?file=src/utils.py&depth=2
+        Returns upstream dependents and downstream dependencies.
+        """
+        file_arg = request.args.get("file", "").strip()
+        depth = min(int(request.args.get("depth", 2)), 5)
+        if not file_arg:
+            return jsonify({"error": "file parameter is required"}), 400
+
+        # Find file node(s) matching the path fragment
+        matched_ids = [
+            nid for nid, d in G.nodes(data=True)
+            if d.get("type") == "file" and file_arg in (d.get("label", "") or "")
+        ]
+        if not matched_ids:
+            return jsonify({"error": f"No file node found matching '{file_arg}'",
+                            "hint": "Use a substring of the file path"}), 404
+
+        node_id = matched_ids[0]
+
+        # BFS upstream (who imports this file)
+        def bfs(start: str, direction: str, max_depth: int) -> list[dict[str, Any]]:
+            visited: dict[str, int] = {start: 0}
+            queue = [start]
+            results_out: list[dict[str, Any]] = []
+            while queue:
+                current = queue.pop(0)
+                d_current = visited[current]
+                if d_current >= max_depth:
+                    continue
+                neighbors = (list(G.predecessors(current)) if direction == "up"
+                             else list(G.successors(current)))
+                for nb in neighbors:
+                    if nb not in visited:
+                        visited[nb] = d_current + 1
+                        queue.append(nb)
+                        nb_data = G.nodes.get(nb, {})
+                        results_out.append({
+                            "id": nb,
+                            "label": nb_data.get("label", nb),
+                            "type": nb_data.get("type", ""),
+                            "source_file": nb_data.get("source_file", ""),
+                            "depth": d_current + 1,
+                        })
+            return results_out
+
+        dependents = bfs(node_id, "up", depth)    # who uses this
+        dependencies = bfs(node_id, "down", depth)  # what this uses
+
+        return jsonify({
+            "file": file_arg,
+            "node_id": node_id,
+            "depth": depth,
+            "dependents": dependents[:50],
+            "dependencies": dependencies[:50],
+            "prompt_hint": (
+                f"The file '{file_arg}' is imported by {len(dependents)} node(s) "
+                f"and imports from {len(dependencies)} node(s) up to depth {depth}. "
+                "Focus on dependents before changing this file."
+            ),
+        })
+
+    @app.route("/api/query/path")
+    def api_query_path():
+        """Shortest dependency path between two nodes.
+
+        GET /api/query/path?from=src/auth.py&to=src/db.py
+        Returns the shortest import/call chain.
+        """
+        from_arg = request.args.get("from", "").strip()
+        to_arg = request.args.get("to", "").strip()
+        if not from_arg or not to_arg:
+            return jsonify({"error": "Both 'from' and 'to' parameters are required"}), 400
+
+        from_ids = [nid for nid, d in G.nodes(data=True)
+                    if from_arg in (d.get("label", "") or "")]
+        to_ids = [nid for nid, d in G.nodes(data=True)
+                  if to_arg in (d.get("label", "") or "")]
+
+        if not from_ids:
+            return jsonify({"error": f"No node found matching 'from={from_arg}'"}), 404
+        if not to_ids:
+            return jsonify({"error": f"No node found matching 'to={to_arg}'"}), 404
+
+        path_nodes: list[str] = []
+        try:
+            path_nodes = nx.shortest_path(G, from_ids[0], to_ids[0])
+        except nx.NetworkXNoPath:
+            path_nodes = []
+        except nx.NodeNotFound:
+            path_nodes = []
+
+        path_details = []
+        for nid in path_nodes:
+            d = G.nodes.get(nid, {})
+            path_details.append({
+                "id": nid,
+                "label": d.get("label", nid),
+                "type": d.get("type", ""),
+                "source_file": d.get("source_file", ""),
+            })
+
+        return jsonify({
+            "from": from_arg,
+            "to": to_arg,
+            "path_length": len(path_nodes) - 1 if path_nodes else -1,
+            "path": path_details,
+            "prompt_hint": (
+                f"Shortest dependency chain from '{from_arg}' to '{to_arg}' "
+                f"has {max(len(path_nodes) - 1, 0)} hops. "
+                "Each hop is an import or call relationship."
+                if path_nodes else
+                f"No dependency path found between '{from_arg}' and '{to_arg}'."
+            ),
+        })
+
+    @app.route("/api/query/risk")
+    def api_query_risk():
+        """Top risk files ranked by connectivity × complexity.
+
+        GET /api/query/risk?top=10
+        Returns files most likely to cause ripple effects if changed.
+        """
+        top_n = min(int(request.args.get("top", 10)), 50)
+
+        # Build risk score: (in_degree * out_degree) * complexity
+        complexity_map = {c["label"]: c.get("complexity_score", 1.0) for c in complexity}
+        risk: list[dict[str, Any]] = []
+        for nid, d in G.nodes(data=True):
+            if d.get("type") != "file":
+                continue
+            label = d.get("label", nid)
+            in_d = G.in_degree(nid)
+            out_d = G.out_degree(nid)
+            cx = complexity_map.get(label, 1.0)
+            score = round((in_d + 1) * (out_d + 1) * max(cx, 1.0), 2)
+            risk.append({
+                "id": nid,
+                "label": label,
+                "in_degree": in_d,
+                "out_degree": out_d,
+                "complexity_score": cx,
+                "risk_score": score,
+            })
+
+        risk_sorted = sorted(risk, key=lambda x: x["risk_score"], reverse=True)[:top_n]
+        top_labels = [r["label"] for r in risk_sorted[:3]]
+        return jsonify({
+            "top": top_n,
+            "results": risk_sorted,
+            "prompt_hint": (
+                f"The highest-risk files are: {', '.join(top_labels)}. "
+                "These have high connectivity and complexity — changes here have the most ripple effect."
+            ),
+        })
+
+    @app.route("/api/query/symbols")
+    def api_query_symbols():
+        """Search symbols (functions, classes) by name fragment.
+
+        GET /api/query/symbols?q=auth&type=function
+        Returns matching symbols with signatures and source locations.
+        """
+        q = request.args.get("q", "").strip().lower()
+        sym_type = request.args.get("type", "").strip().lower()
+        limit = min(int(request.args.get("limit", 20)), 100)
+
+        if not q:
+            return jsonify({"error": "q parameter is required"}), 400
+
+        results_out = []
+        for nid, d in G.nodes(data=True):
+            ntype = (d.get("type") or "").lower()
+            if sym_type and ntype != sym_type:
+                continue
+            if ntype not in ("function", "method", "class"):
+                continue
+            label = (d.get("label", "") or "").lower()
+            sig = (d.get("signature", "") or "").lower()
+            if q in label or q in sig:
+                results_out.append({
+                    "id": nid,
+                    "label": d.get("label", nid),
+                    "type": ntype,
+                    "signature": d.get("signature", ""),
+                    "source_file": d.get("source_file", ""),
+                    "source_location": d.get("source_location", ""),
+                    "docstring": str(d.get("docstring", "") or "")[:150],
+                })
+                if len(results_out) >= limit:
+                    break
+
+        return jsonify({
+            "query": q,
+            "type_filter": sym_type or "all",
+            "count": len(results_out),
+            "results": results_out,
+        })
+
+    @app.route("/api/query/prompts")
+    def api_query_prompts():
+        """Returns copy-paste MCP-style prompts for popular AI coding tools."""
+        base = request.host_url.rstrip("/")
+        return jsonify({
+            "endpoints": {
+                "affects": f"GET {base}/api/query/affects?file=<path>&depth=2",
+                "path": f"GET {base}/api/query/path?from=<src>&to=<dst>",
+                "risk": f"GET {base}/api/query/risk?top=10",
+                "symbols": f"GET {base}/api/query/symbols?q=<name>&type=function",
+            },
+            "copilot_snippet": (
+                "To understand the codebase, call "
+                f"GET {base}/api/query/risk to find high-risk files, "
+                f"then GET {base}/api/query/affects?file=<file> before editing."
+            ),
+            "cursor_snippet": (
+                f"Use {base}/api/query/symbols?q={{symbol_name}} to locate symbols "
+                f"and {base}/api/query/path?from={{a}}&to={{b}} to trace dependencies."
+            ),
+        })
+
     # ── AI Chat endpoints ───────────────────────────────────────────────
     _ai_sessions: dict[str, Any] = {}  # provider_key → AIAssistant
 

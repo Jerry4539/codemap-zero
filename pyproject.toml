@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codemap-zero"
-version = "0.1.8"
-description = "Zero-LLM project scanner for AI agents. Produces a compact project map so AI uses 50-100x fewer tokens to understand your codebase."
+version = "0.1.9"
+description = "Zero-LLM project scanner for AI agents. Generates compact, token-budgeted project maps with task-focused context packs, structural query APIs, and edge confidence labels — so AI uses up to 50-100x fewer tokens to understand your codebase."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -47,12 +47,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dart = ["tree-sitter-dart"]
 leiden = ["graspologic; python_version < '3.13'"]
 web = ["flask>=3.0"]
 ai = ["httpx>=0.27"]
 watch = ["watchdog>=3.0"]
 svg = ["matplotlib>=3.7"]
-all = ["codemap-zero[leiden,web,ai,watch,svg]"]
+all = ["codemap-zero[leiden,web,ai,watch,svg,dart]"]
 dev = ["pytest>=7.0", "pytest-cov", "flask>=3.0", "httpx>=0.27"]
 
 [project.scripts]

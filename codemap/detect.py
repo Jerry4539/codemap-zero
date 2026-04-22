@@ -81,17 +81,21 @@ FRAMEWORK_KEYWORDS: dict[str, tuple[str, ...]] = {
     "axum": ("Rust",), "actix": ("Rust",), "rocket": ("Rust",), "tokio": ("Rust",),
     "rails": ("Ruby",), "sinatra": ("Ruby",), "laravel": ("PHP",), "symfony": ("PHP",),
     "vapor": ("Swift",), "phoenix": ("Elixir",), "aspnet": ("C#",),
+    # Dart / Flutter
+    "flutter": ("Dart",), "riverpod": ("Dart",), "bloc": ("Dart",), "provider": ("Dart",),
+    "get": ("Dart",), "getx": ("Dart",), "dio": ("Dart",),
 }
 
 MANIFEST_NAMES: set[str] = {
     "pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile",
     "package.json", "go.mod", "Cargo.toml", "pom.xml", "build.gradle", "build.gradle.kts",
     "composer.json", "Gemfile", "mix.exs", "Package.swift", "pnpm-lock.yaml", "yarn.lock",
+    "pubspec.yaml",  # Dart / Flutter
 }
 
 TEST_MARKERS: set[str] = {"test_", "_test.", ".test.", ".spec.", "tests/", "__tests__/", "test/"}
 
-# Directories to always skip
+# Directories to always skip (build artifacts, caches, generated output)
 ALWAYS_SKIP: set[str] = {
     ".git", ".hg", ".svn",
     "node_modules", "__pycache__", ".tox", ".nox",
@@ -103,7 +107,31 @@ ALWAYS_SKIP: set[str] = {
     "codemap-out",
     "codemap-zero",
     ".idea", ".vscode",
+    # Flutter / Dart
+    ".dart_tool", ".flutter-plugins", ".pub-cache", ".pub",
+    # iOS / Android
+    "Pods", ".gradle", "DerivedData",
+    # Coverage & test artifacts
+    "coverage", "htmlcov", ".nyc_output", "lcov-report",
+    # Generated code dirs
+    "__generated__", "generated", "gen",
+    # Storybook
+    "storybook-static", ".storybook-out",
+    # Misc artifact dirs
+    "eggs", ".eggs", "sdist", "wheels", ".cache",
 }
+
+# File-name patterns for generated / minified files — excluded from source corpus
+# Checked via fnmatch against the bare filename.
+GENERATED_FILE_PATTERNS: tuple[str, ...] = (
+    "*.min.js", "*.min.css",
+    "*.bundle.js", "*.bundle.css",
+    "*.chunk.js",
+    "*.generated.*",
+    "*_pb2.py", "*_pb2.pyi", "*.pb.go",   # protobuf generated
+    "*_generated.go",
+    "*.snap",                               # Jest snapshots (large)
+)
 
 # Binary / generated files to always skip
 BINARY_EXTENSIONS: set[str] = {
@@ -114,6 +142,8 @@ BINARY_EXTENSIONS: set[str] = {
     ".mp3", ".mp4", ".mov", ".avi", ".mkv", ".wav",
     ".ico", ".icns",
     ".lock",
+    ".map",   # source maps
+    ".cache",
 }
 
 # ---------------------------------------------------------------------------
@@ -371,6 +401,27 @@ def _extract_dependencies_from_manifests(root: Path) -> tuple[dict[str, list[str
         elif name == "Gemfile":
             gems = re.findall(r"^\s*gem\s+[\"']([^\"']+)[\"']", text, flags=re.MULTILINE)
             _add_many("ruby", gems)
+        elif name == "pubspec.yaml":
+            # Dart / Flutter manifest
+            try:
+                import re as _re
+                # Simple line-based YAML parse for dependencies block
+                in_dep = False
+                for line in text.splitlines():
+                    stripped = line.strip()
+                    if stripped in ("dependencies:", "dev_dependencies:"):
+                        in_dep = True
+                        continue
+                    if in_dep:
+                        if stripped and not stripped.startswith("#"):
+                            if not line.startswith(" ") and not line.startswith("\t"):
+                                in_dep = False
+                                continue
+                            m = _re.match(r"^\s+([\w_.-]+)\s*:", line)
+                            if m and m.group(1) not in ("sdk", "flutter", "path", "git", "version"):
+                                _add_many("dart", [m.group(1)])
+            except Exception:
+                pass
 
     dep_map = {eco: sorted(list(vals))[:80] for eco, vals in sorted(deps.items())}
     manifest_paths = [str(p.relative_to(root)).replace("\\", "/") for p in manifests]
@@ -420,6 +471,7 @@ _PROJECT_SIGNALS: list[tuple[str, str, list[str]]] = [
     ("Package.swift", "swift", ["vapor"]),
     ("mix.exs", "elixir", ["phoenix"]),
     (".csproj", "csharp", ["aspnet"]),
+    ("pubspec.yaml", "dart", ["flutter", "riverpod", "bloc"]),
 ]
 
 
@@ -481,6 +533,17 @@ def _detect_project_type(root: Path) -> tuple[str, str, str, list[str]]:
                 project_description = pkg.get("description", project_description)
             except _json.JSONDecodeError:
                 pass
+        elif filename == "pubspec.yaml":
+            for line in raw_content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("name:"):
+                    val = stripped[5:].strip().strip('"').strip("'")
+                    if val:
+                        project_name = val
+                elif stripped.startswith("description:"):
+                    val = stripped[12:].strip().strip('"').strip("'")
+                    if val:
+                        project_description = val
 
         # Detect frameworks
         for kw in fw_keywords:
@@ -585,6 +648,11 @@ def detect(root: Path, max_files: int = 0, include_ignored: bool = False) -> Det
 
             # Skip binary/generated files
             if ext in BINARY_EXTENSIONS:
+                result.skipped_binary += 1
+                continue
+
+            # Skip generated/minified files by filename pattern
+            if any(fnmatch.fnmatch(fname, pat) for pat in GENERATED_FILE_PATTERNS):
                 result.skipped_binary += 1
                 continue
 

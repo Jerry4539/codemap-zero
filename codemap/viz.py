@@ -983,7 +983,7 @@ td .score-badge.low{background:rgba(52,211,153,.12);color:var(--green)}
   </div>
 </div>
 
-<div class="page-footer">codemap-zero v0.1.7 &middot; <strong style="color:var(--accent-light)">Jerry4539</strong></div>
+<div class="page-footer">codemap-zero v0.1.8 &middot; <strong style="color:var(--accent-light)">Jerry4539</strong></div>
 
 <script>
 (function(){

@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import os
+import re
 import sys
 import json
 import time
@@ -37,9 +38,9 @@ def _c(text: str, color: str) -> str:
 
 def _banner() -> None:
     click.echo()
-    click.echo(_c("  ╔═══════════════════════════════════════╗", CYAN))
+    click.echo(_c("  ╔════════════════════════════════════════════╗", CYAN))
     click.echo(_c("  ║", CYAN) + _c("   codemap-zero", BOLD + GREEN) + _c(" — zero-LLM project scanner  ", DIM) + _c("║", CYAN))
-    click.echo(_c("  ╚═══════════════════════════════════════╝", CYAN))
+    click.echo(_c("  ╚════════════════════════════════════════════╝", CYAN))
     click.echo()
 
 
@@ -77,12 +78,56 @@ def _find_existing_scan(target: str, output_dir: str) -> Path | None:
     return None
 
 
+def _parse_token_budget(value: str) -> int:
+    """Parse a token-budget string like '1k', '3k', '8k', or integer."""
+    if not value or value == "0":
+        return 0
+    v = value.strip().lower()
+    if v.endswith("k"):
+        try:
+            return int(float(v[:-1]) * 1000)
+        except ValueError:
+            return 0
+    try:
+        return int(v)
+    except ValueError:
+        return 0
+
+
+def _get_git_changed_files(root: Path) -> list[str] | None:
+    """Return list of changed file paths relative to root using git diff.
+
+    Returns None if git is not available or not a git repo.
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(root), capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        changed = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+        # Also include untracked/staged changes
+        result2 = subprocess.run(
+            ["git", "diff", "--name-only", "--cached"],
+            cwd=str(root), capture_output=True, text=True, timeout=10,
+        )
+        if result2.returncode == 0:
+            changed += [ln.strip() for ln in result2.stdout.splitlines() if ln.strip()]
+        return list(set(changed))
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        return None
+
+
 def _run_scan(
     target: str,
     output_dir: str,
     no_html: bool = False,
     no_json: bool = False,
     include_ignored: bool = False,
+    token_budget: int = 0,
+    changed_only: bool = False,
 ) -> dict[str, Any]:
     """Run the full scan pipeline and return results dict."""
     from codemap import detect, extract, build, cluster, analyze, report, export, viz, docs
@@ -123,7 +168,29 @@ def _run_scan(
 
     click.echo(_c("  [2/7]", DIM) + " Extracting AST nodes...")
     code_files = detection["files"].get("code", [])
-    ast_result = extract.extract(code_files, target_path)
+
+    # Incremental: if --changed, limit extraction to git-changed files only
+    if changed_only:
+        changed_files = _get_git_changed_files(target_path)
+        if changed_files is not None:
+            changed_set = set(changed_files)
+            fresh_files = [f for f in code_files if f in changed_set]
+            cached_files = [f for f in code_files if f not in changed_set]
+            click.echo(_c(f"         → incremental: {len(fresh_files)} changed, "
+                          f"{len(cached_files)} cached", DIM))
+            # Extract fresh + load cached
+            fresh_result = extract.extract(fresh_files, target_path)
+            cached_result = extract.extract(cached_files, target_path)
+            ast_result = {
+                "nodes": fresh_result.get("nodes", []) + cached_result.get("nodes", []),
+                "edges": fresh_result.get("edges", []) + cached_result.get("edges", []),
+            }
+        else:
+            click.echo(_c("         → git not available; doing full scan", YELLOW))
+            ast_result = extract.extract(code_files, target_path)
+    else:
+        ast_result = extract.extract(code_files, target_path)
+
     node_count = len(ast_result.get("nodes", []))
     edge_count = len(ast_result.get("edges", []))
     click.echo(_c(f"         → {node_count} nodes, {edge_count} edges", DIM))
@@ -156,7 +223,7 @@ def _run_scan(
         cohesion=cohesion, gods=gods, entry_points=entry_points,
         architecture=architecture, layers=layers, circular_deps=circular,
         dead_exports=dead, test_coverage=test_cov, complexity=complexity,
-        surprises=surprises,
+        surprises=surprises, token_budget=token_budget,
     )
     md_path = out_path / "PROJECT_MAP.md"
     md_path.write_text(md_text, encoding="utf-8")
@@ -256,19 +323,26 @@ def cli(ctx: click.Context) -> None:
 @click.option("--no-html", is_flag=True, help="Skip HTML visualization.")
 @click.option("--no-json", is_flag=True, help="Skip JSON export.")
 @click.option("--include-ignored", is_flag=True, help="Include files matched by .gitignore / .codemapignore.")
-def scan(target: str, output: str, no_html: bool, no_json: bool, include_ignored: bool) -> None:
+@click.option("--token-budget", default="0", help="Trim markdown report to token target: 1k, 3k, 8k, or integer.")
+@click.option("--changed", is_flag=True, help="Re-extract only git-changed files (incremental mode).")
+def scan(target: str, output: str, no_html: bool, no_json: bool, include_ignored: bool,
+         token_budget: str, changed: bool) -> None:
     """Scan a project and generate project map files.
 
     \b
     Examples:
-      codemap scan .                    Scan current directory
-      codemap scan ~/myproject -o out/  Scan with custom output dir
-      codemap scan . --no-html          Skip HTML generation
+      codemap scan .                        Scan current directory
+      codemap scan ~/myproject -o out/      Scan with custom output dir
+      codemap scan . --no-html              Skip HTML generation
+      codemap scan . --token-budget 3k      Trim report to ~3 000 tokens
+      codemap scan . --changed              Incremental: re-extract only git-changed files
 
     Output files are created in a 'codemap-zero/' folder by default.
     """
+    _budget = _parse_token_budget(token_budget)
     _banner()
-    _run_scan(target, output, no_html=no_html, no_json=no_json, include_ignored=include_ignored)
+    _run_scan(target, output, no_html=no_html, no_json=no_json,
+              include_ignored=include_ignored, token_budget=_budget, changed_only=changed)
 
 
 @cli.command()
@@ -473,6 +547,178 @@ def menu(target: str, output: str) -> None:
 
         else:
             click.echo(_c(f"  Unknown option: {choice}\n", RED))
+
+
+# ── Pack command ─────────────────────────────────────────────────────────────
+
+@cli.command()
+@click.argument("goal")
+@click.argument("target", default=".")
+@click.option("-o", "--output", default="codemap-zero", help="Output directory with existing scan.")
+@click.option("--depth", default=2, help="BFS depth for expanding related modules (default: 2).")
+@click.option("--token-budget", "token_budget_str", default="3k",
+              help="Token budget for the pack (default: 3k).")
+def pack(goal: str, target: str, output: str, depth: int, token_budget_str: str) -> None:
+    """Generate a task-focused context pack for a developer goal.
+
+    Scans the project (or reuses existing scan) and outputs a compact
+    Markdown context containing only the files and modules relevant to GOAL.
+    This is 2-5x smaller than the full map and targeted to the task.
+
+    \b
+    Examples:
+      codemap pack "add oauth login" .
+      codemap pack "fix payment flow" . --depth 3
+      codemap pack "add dark mode" . --token-budget 2k
+    """
+    _banner()
+    budget = _parse_token_budget(token_budget_str)
+
+    click.echo(_c(f"  Task: {goal}", BOLD))
+    click.echo(_c("  Scanning project...\n", YELLOW))
+    results = _run_scan(target, output, no_html=True, no_json=True)
+
+    G = results["G"]
+    detection = results["detection"]
+    communities = results["communities"]
+    labels = results["labels"]
+    cohesion = results["cohesion"]
+    complexity = results.get("complexity", [])
+
+    # ── Keyword extraction from goal ───────────────────────────────────
+    stop_words = {"add", "fix", "update", "implement", "create", "remove", "improve",
+                  "the", "a", "an", "for", "to", "in", "with", "and", "or", "of",
+                  "on", "at", "by", "from", "as", "is", "be", "do", "get", "set"}
+    keywords = [w.lower().strip("'\".,!?") for w in goal.split()
+                if len(w) > 2 and w.lower() not in stop_words]
+
+    def _score_node(node_id: str, data: dict[str, Any]) -> float:
+        label = (data.get("label", "") or "").lower()
+        docstring = (str(data.get("docstring", "") or "")).lower()
+        source = (data.get("source_file", "") or "").lower()
+        text = f"{label} {docstring} {source}"
+        return sum(1.0 for kw in keywords if kw in text)
+
+    # Find seed nodes
+    seeds: list[str] = []
+    for node_id, data in G.nodes(data=True):
+        if _score_node(node_id, data) > 0:
+            seeds.append(node_id)
+
+    # BFS expansion
+    visited: set[str] = set(seeds)
+    frontier = set(seeds)
+    for _ in range(depth):
+        next_frontier: set[str] = set()
+        for nid in frontier:
+            for neighbor in list(G.successors(nid)) + list(G.predecessors(nid)):
+                if neighbor not in visited:
+                    next_frontier.add(neighbor)
+                    visited.add(neighbor)
+        frontier = next_frontier
+
+    # Gather unique source files
+    relevant_files: set[str] = set()
+    relevant_modules: set[int] = set()
+    node_comm: dict[str, int] = {}
+    for cid, members in communities.items():
+        for m in members:
+            node_comm[m] = cid
+
+    for nid in visited:
+        data = G.nodes.get(nid, {})
+        src = data.get("source_file", "")
+        if src:
+            relevant_files.add(src)
+        cid = node_comm.get(nid)
+        if cid is not None:
+            relevant_modules.add(cid)
+
+    # ── Build pack output ──────────────────────────────────────────────
+    out_lines: list[str] = []
+    out_lines.append(f"# Context Pack: {goal}\n")
+    out_lines.append(f"**Project:** {detection.get('project_name', '?')} "
+                     f"({detection.get('project_type', '?')})\n")
+    out_lines.append(f"**Keywords matched:** {', '.join(f'`{k}`' for k in keywords)}\n")
+    out_lines.append(f"**Relevant files:** {len(relevant_files)} · "
+                     f"**Relevant nodes:** {len(visited)} of {G.number_of_nodes()} total\n")
+
+    if relevant_files:
+        out_lines.append("## Relevant Files\n")
+        for f in sorted(relevant_files):
+            data = G.nodes.get(f"file_{f.replace('/', '_').replace('.', '_').lower()}", {})
+            doc = str(data.get("docstring", "") or "")[:80]
+            suffix = f" — {doc}" if doc else ""
+            out_lines.append(f"- `{f}`{suffix}")
+        out_lines.append("")
+
+    if relevant_modules:
+        out_lines.append("## Relevant Modules\n")
+        for cid in sorted(relevant_modules):
+            members = communities.get(cid, [])
+            file_members = [G.nodes[m].get("label", m) for m in members
+                            if G.nodes.get(m, {}).get("type") == "file"]
+            out_lines.append(f"### {labels.get(cid, f'Module {cid}')} "
+                             f"(cohesion: {cohesion.get(cid, 0):.2f})")
+            if file_members:
+                out_lines.append(f"Files: {', '.join(f'`{f}`' for f in file_members[:6])}")
+            # Key symbols in this module matching keywords
+            sym_hits = []
+            for m in members:
+                d = G.nodes.get(m, {})
+                if d.get("type") in ("function", "method", "class") and _score_node(m, d) > 0:
+                    sig = d.get("signature", "") or d.get("label", m)
+                    sym_hits.append(f"`{sig}`")
+            if sym_hits:
+                out_lines.append(f"Key symbols: {', '.join(sym_hits[:8])}")
+            out_lines.append("")
+
+    # Relevant edges (import/call between relevant files)
+    relevant_edges = [(u, v, d) for u, v, d in G.edges(data=True)
+                      if u in visited and v in visited and d.get("relation") != "contains"]
+    if relevant_edges:
+        out_lines.append("## Dependency Flow (within pack)\n")
+        for u, v, d in relevant_edges[:20]:
+            ul = G.nodes.get(u, {}).get("label", u)
+            vl = G.nodes.get(v, {}).get("label", v)
+            conf = d.get("confidence", "")
+            conf_tag = f" [{conf}]" if conf else ""
+            out_lines.append(f"- `{ul}` → `{vl}` ({d.get('relation', '')}){conf_tag}")
+        if len(relevant_edges) > 20:
+            out_lines.append(f"  …and {len(relevant_edges) - 20} more edges")
+        out_lines.append("")
+
+    # Suggested entry points for this task
+    ep_hits = [ep for ep in results.get("entry_points", [])
+               if any(kw in str(ep).lower() for kw in keywords)]
+    if ep_hits:
+        out_lines.append("## Suggested Starting Points\n")
+        for ep in ep_hits[:5]:
+            label = ep.get("label", str(ep)) if isinstance(ep, dict) else str(ep)
+            out_lines.append(f"- `{label}`")
+        out_lines.append("")
+
+    out_lines.append("---\n")
+    out_lines.append(f"*Generated by codemap pack · goal: \"{goal}\" · "
+                     f"depth {depth} · {len(visited)} nodes in pack*\n")
+
+    pack_text = "\n".join(out_lines)
+    if budget > 0:
+        from codemap import report as _report_mod
+        pack_text = _report_mod.trim_to_budget(pack_text, budget)
+
+    # Write pack file
+    out_path = _resolve_output(target, output)
+    out_path.mkdir(parents=True, exist_ok=True)
+    safe_goal = re.sub(r"[^a-z0-9]+", "_", goal.lower())[:40]
+    pack_path = out_path / f"pack_{safe_goal}.md"
+    pack_path.write_text(pack_text, encoding="utf-8")
+
+    pack_tokens = len(pack_text.split()) * 100 // 75
+    click.echo()
+    click.echo(_c(f"  Pack saved to: {pack_path}", GREEN + BOLD))
+    click.echo(_c(f"  ~{pack_tokens:,} tokens · {len(relevant_files)} files · {len(visited)} nodes", DIM))
+    click.echo()
 
 
 def _show_stats(results: dict[str, Any]) -> None:

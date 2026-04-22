@@ -266,6 +266,15 @@ LANGUAGES: dict[str, LanguageConfig] = {
         call_types=["call_expression"],
         comment_types=["line_comment", "block_comment"],
     ),
+    ".dart": LanguageConfig(
+        ts_module="tree_sitter_dart",
+        class_types=["class_definition", "mixin_declaration", "extension_declaration"],
+        function_types=["function_signature", "method_signature", "function_body"],
+        import_types=["import_or_export"],
+        call_types=["selector_expression", "function_expression_invocation"],
+        comment_types=["comment", "documentation_comment"],
+        parser_func="language",
+    ),
 }
 
 # Aliases
@@ -415,6 +424,19 @@ def _extract_imports(node: tree_sitter.Node, config: LanguageConfig) -> list[dic
         match = re.search(r"use\s+([\w:]+)", text)
         if match:
             imports.append({"module": match.group(1), "text": text.strip()})
+    elif config.ts_module == "tree_sitter_dart":
+        # Dart: import 'package:flutter/material.dart'; or import 'src/foo.dart';
+        match = re.search(r"""import\s+['"]([^'"]+)['"]""", text)
+        if match:
+            mod = match.group(1)
+            # Normalize: 'package:foo/bar.dart' -> 'foo/bar', 'src/foo.dart' -> 'src/foo'
+            if mod.startswith("dart:"):
+                pass  # stdlib — skip
+            else:
+                if mod.startswith("package:"):
+                    mod = mod[len("package:"):]
+                mod = mod.rstrip("/").removesuffix(".dart")
+                imports.append({"module": mod, "text": text.strip()})
     else:
         imports.append({"module": text.strip(), "text": text.strip()})
 
@@ -644,6 +666,8 @@ def extract_file(file_path: Path, root: Path) -> ExtractionResult:
                 "source_location": f"L{node.start_point[0] + 1}",
                 "import_text": imp["text"][:100],
                 "import_module": imp["module"],
+                "confidence": "HIGH",
+                "provenance": "EXTRACTED",
             })
 
     def _process_call_filtered(node: tree_sitter.Node) -> None:
@@ -700,6 +724,7 @@ def extract_file(file_path: Path, root: Path) -> ExtractionResult:
                 result.edges.append({
                     "source": file_node_id, "target": imp_id, "relation": "imports",
                     "source_file": rel_path, "import_text": text[:100], "import_module": mod,
+                    "confidence": "HIGH", "provenance": "EXTRACTED",
                 })
             return
 
@@ -720,16 +745,25 @@ def extract_file(file_path: Path, root: Path) -> ExtractionResult:
         seen_targets: set[str] = set()
         for call_name in called_names:
             target_id = symbol_map.get(call_name)
+            confidence = "HIGH"
+            provenance = "INFERRED"
             if not target_id:
                 for sym_name, sym_id in symbol_map.items():
                     if sym_name.endswith(f".{call_name}"):
                         target_id = sym_id
+                        confidence = "MEDIUM"
                         break
+            if not target_id:
+                # Could not resolve — record as ambiguous import-like node
+                target_id = _make_node_id("unresolved", call_name)
+                confidence = "LOW"
+                provenance = "AMBIGUOUS"
             if target_id and target_id != caller_id and target_id not in seen_targets:
                 seen_targets.add(target_id)
                 result.edges.append({
                     "source": caller_id, "target": target_id,
                     "relation": "calls", "source_file": rel_path,
+                    "confidence": confidence, "provenance": provenance,
                 })
 
     # Rationale comments
